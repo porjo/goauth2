@@ -308,6 +308,8 @@ func (t *Transport) Refresh() error {
 	err := t.updateToken(t.Token, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {t.RefreshToken},
+		"scope":        {t.Scope},
+		"redirect_uri": {t.RedirectURL},
 	})
 	if err != nil {
 		return err
@@ -323,8 +325,8 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	v.Set("client_secret", t.ClientSecret)
 	buf := new(bytes.Buffer)
 	formwriter := multipart.NewWriter(buf)
-	for key, value := range v {
-		err := formwriter.WriteField(key,value[0])
+	for key, values := range v {
+		err := formwriter.WriteField(key,values[0])
 		if err != nil {
 			return err
 		}
