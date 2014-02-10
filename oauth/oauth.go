@@ -38,15 +38,15 @@
 package oauth
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
-	"mime/multipart"
-	"bytes"
 )
 
 type OAuthError struct {
@@ -308,8 +308,8 @@ func (t *Transport) Refresh() error {
 	err := t.updateToken(t.Token, url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {t.RefreshToken},
-		"scope":        {t.Scope},
-		"redirect_uri": {t.RedirectURL},
+		"scope":         {t.Scope},
+		"redirect_uri":  {t.RedirectURL},
 	})
 	if err != nil {
 		return err
@@ -326,7 +326,7 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	buf := new(bytes.Buffer)
 	formwriter := multipart.NewWriter(buf)
 	for key, values := range v {
-		err := formwriter.WriteField(key,values[0])
+		err := formwriter.WriteField(key, values[0])
 		if err != nil {
 			return err
 		}
@@ -339,7 +339,7 @@ func (t *Transport) updateToken(tok *Token, v url.Values) error {
 		return err
 	}
 	req.Header.Set("Content-Type", formwriter.FormDataContentType())
-	req.SetBasicAuth(t.ClientId,t.ClientSecret)
+	req.SetBasicAuth(t.ClientId, t.ClientSecret)
 	r, err := client.Do(req)
 
 	if err != nil {
