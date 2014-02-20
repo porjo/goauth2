@@ -9,6 +9,7 @@
 //
 //	// Specify your configuration. (typically as a global variable)
 //	var config = &oauth.Config{
+//		Provider:     [TWITTER, REDDIT]
 //		ClientId:     YOUR_CLIENT_ID,
 //		ClientSecret: YOUR_CLIENT_SECRET,
 //		Scope:        "https://www.googleapis.com/auth/buzz",
@@ -47,6 +48,13 @@ import (
 	"net/url"
 	"os"
 	"time"
+)
+
+//Oauth providers
+const ( // iota is reset to 0
+	GENERIC = iota
+	TWITTER
+	REDDIT
 )
 
 type OAuthError struct {
@@ -98,6 +106,9 @@ func (f CacheFile) PutToken(tok *Token) error {
 
 // Config is the configuration of an OAuth consumer.
 type Config struct {
+	// Provider is the OAuth provider to use
+	Provider int
+
 	// ClientId is the OAuth client identifier used when communicating with
 	// the configured OAuth provider.
 	ClientId string
@@ -305,12 +316,21 @@ func (t *Transport) Refresh() error {
 		return OAuthError{"Refresh", "no Config supplied"}
 	}
 
-	err := t.updateToken(t.Token, url.Values{
-		"grant_type":    {"refresh_token"},
-		"refresh_token": {t.RefreshToken},
-		"scope":         {t.Scope},
-		"redirect_uri":  {t.RedirectURL},
-	})
+	var err error
+
+	if t.Config.Provider == REDDIT {
+		err = t.updateToken(t.Token, url.Values{
+			"grant_type":    {"refresh_token"},
+			"refresh_token": {t.RefreshToken},
+			"scope":         {t.Scope},
+			"redirect_uri":  {t.RedirectURL},
+		})
+	} else {
+		err = t.updateToken(t.Token, url.Values{
+			"grant_type":    {"refresh_token"},
+			"refresh_token": {t.RefreshToken},
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -323,25 +343,32 @@ func (t *Transport) Refresh() error {
 func (t *Transport) updateToken(tok *Token, v url.Values) error {
 	v.Set("client_id", t.ClientId)
 	v.Set("client_secret", t.ClientSecret)
-	buf := new(bytes.Buffer)
-	formwriter := multipart.NewWriter(buf)
-	for key, values := range v {
-		err := formwriter.WriteField(key, values[0])
+
+	var err error
+	var r *http.Response
+
+	if t.Config.Provider == REDDIT {
+		buf := new(bytes.Buffer)
+		formwriter := multipart.NewWriter(buf)
+		for key, values := range v {
+			err := formwriter.WriteField(key, values[0])
+			if err != nil {
+				return err
+			}
+		}
+		formwriter.Close()
+
+		client := &http.Client{Transport: t.transport()}
+		req, err := http.NewRequest("POST", t.TokenURL, buf)
 		if err != nil {
 			return err
 		}
+		req.Header.Set("Content-Type", formwriter.FormDataContentType())
+		req.SetBasicAuth(t.ClientId, t.ClientSecret)
+		r, err = client.Do(req)
+	} else {
+		r, err = (&http.Client{Transport: t.transport()}).PostForm(t.TokenURL, v)
 	}
-	formwriter.Close()
-
-	client := &http.Client{Transport: t.transport()}
-	req, err := http.NewRequest("POST", t.TokenURL, buf)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", formwriter.FormDataContentType())
-	req.SetBasicAuth(t.ClientId, t.ClientSecret)
-	r, err := client.Do(req)
-
 	if err != nil {
 		return err
 	}
