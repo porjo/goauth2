@@ -36,6 +36,9 @@
 //		// btw, r.FormValue("state") == "foo"
 //	}
 //
+// 2014-02-20: Twitter doesn't (yet) provider per-user auth using oauth2
+//
+
 package oauth
 
 import (
@@ -53,7 +56,7 @@ import (
 //Oauth providers
 const ( // iota is reset to 0
 	GENERIC = iota
-	TWITTER
+	FACEBOOK
 	REDDIT
 )
 
